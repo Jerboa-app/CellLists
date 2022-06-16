@@ -377,7 +377,9 @@ int main(){
 
       sf::Vector2i mouse = sf::Mouse::getPosition(window);
 
-      debugText << "Delta: " << fixedLengthNumber(delta,6) <<
+      debugText << "Particles: " << N <<
+        "\n" << 
+        "Delta: " << fixedLengthNumber(delta,6) <<
         " (FPS: " << fixedLengthNumber(1.0/delta,4) << ")" <<
         "\n" <<
         "Render/Physics: " << fixedLengthNumber(renderDelta,6) << "/" << fixedLengthNumber(physDelta,6) <<
