@@ -4,6 +4,14 @@ Watch 100,000 colliding particles in realtime!
 
 Uses C++ with SFML and OpenGL
 
+### Controls
+
+| Function     | Keys |
+| ----------- | ----------- |
+| toggle debug menu      | F1      |
+| zoom   | mouse wheel        |
+| pan | left-click and drag |
+
 ![](https://github.com/Jerboa-app/CellLists/blob/main/resources/s3.png)
 
 ![](https://github.com/Jerboa-app/CellLists/blob/main/resources/s1.png)
