@@ -1,6 +1,7 @@
 #ifndef GLUTILS_H
 #define GLUTILS_H
 
+// print buffer status errors
 GLuint glBufferStatus(const std::string c = ""){
     GLuint e = glCheckFramebufferStatus(GL_FRAMEBUFFER);
     if (e != GL_FRAMEBUFFER_COMPLETE){std::cout << c;}
@@ -27,6 +28,7 @@ GLuint glBufferStatus(const std::string c = ""){
     return e;
 }
 
+// print gl error codes
 GLuint glError(const std::string c = ""){
     GLuint e = glGetError();
     if (e != GL_NO_ERROR){std::cout << c;}
@@ -52,7 +54,7 @@ GLuint glError(const std::string c = ""){
     return e;
 }
 
-
+// compile a gl shader given a program and source code as const char *
 void compileShader(GLuint & shaderProgram, const char * vert, const char * frag){
 
     GLuint vertexShader;
@@ -60,6 +62,7 @@ void compileShader(GLuint & shaderProgram, const char * vert, const char * frag)
     glShaderSource(vertexShader,1,&vert,NULL);
     glCompileShader(vertexShader);
 
+    // check it worked!
     int  success;
     char infoLog[512];
     glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
@@ -87,6 +90,7 @@ void compileShader(GLuint & shaderProgram, const char * vert, const char * frag)
     glAttachShader(shaderProgram,fragmentShader);
     glLinkProgram(shaderProgram);
 
+    // check it linked
     glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
     if(!success) {
         glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);

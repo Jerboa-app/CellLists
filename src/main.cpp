@@ -28,24 +28,26 @@ const int resY = 720;
 
 const int subSample = 2;
 const int N = 100000;
-const float L = resX;
+const float L = resX;                                                             // box length
 const float density = 0.75;
-const float r = 2*std::sqrt(L*L*density/(N*M_PI));
-const int Nc = std::ceil(L/r);
-const float delta = L/Nc;
+const float r = 2*std::sqrt(L*L*density/(N*M_PI));                                // set r for given density
+const int Nc = std::ceil(L/r);                                                    // roughly optimal parameter
+const float delta = L/Nc;                                                         // side length of each cell
 const float dt = 1.0 / 60.0;
-const float k = 300.0;
+const float k = 300.0;                                                            // "hardness" of hermonic collision force
 const float Dr = 0.001;
 const float v0 = 1.0*r;
 
 std::default_random_engine generator;
 std::uniform_real_distribution<float> U(0.0,1.0);
 
+// for smoothing delta numbers
 uint8_t frameId = 0;
 double deltas[60];
 double physDeltas[60];
 double renderDeltas[60];
 
+// particle data
 float X[N*3];
 float Xp[N*3];
 float offsets[N*2];
@@ -75,6 +77,7 @@ int main(){
 
   uint8_t debug = 0;
 
+  // init particles in the box
   generator.seed(clock());
   resetLists(cells,list,N,Nc);
   for (int i = 0; i < N; i++){
@@ -93,8 +96,10 @@ int main(){
   sf::Clock clock;
   sf::Clock physClock, renderClock;
 
+  // for freetype rendering
   glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
+  // for rendering particles using gl_point instances
   glEnable(GL_PROGRAM_POINT_SIZE);
   glEnable(GL_POINT_SPRITE);
   glEnable( GL_BLEND );
@@ -118,6 +123,11 @@ int main(){
   GlyphMap ASCII;
   loadASCIIGlyphs(freeType.face,ASCII);
 
+  // basic particle shader
+  // cmap(t) defines a periodic RGB colour map for t \in [0,1] using cubic
+  // interpolation that's hard coded, it's based upon the PHASE4 colour map
+  // from https://github.com/peterkovesi/PerceptualColourMaps.jl
+  // which is derived from ColorCET https://colorcet.com/
   const char * vert = "#version 330 core\n"
     "#define PI 3.14159265359\n"
     "precision highp float;\n"
@@ -141,6 +151,7 @@ int main(){
   "void main(){\n"
   " vec2 c = 2.0*gl_PointCoord-1.0;\n"
   " float d = length(c);\n"
+  // bit of simple AA
   " float alpha = 1.0-smoothstep(0.99,1.01,d);\n"
   " colour = vec4(o_colour.rgb,alpha);\n"
   " if (colour.a == 0.0){discard;}"
@@ -151,6 +162,7 @@ int main(){
 
   glUseProgram(shader);
 
+  // generate buffers for positions and thetas
   GLuint offsetVBO, thetaVBO;
   glGenBuffers(1,&offsetVBO);
   glBindBuffer(GL_ARRAY_BUFFER,offsetVBO);
@@ -162,6 +174,7 @@ int main(){
   glBufferData(GL_ARRAY_BUFFER,sizeof(float)*N,&thetas[0],GL_DYNAMIC_DRAW);
   glBindBuffer(GL_ARRAY_BUFFER,0);
 
+  // little vertices for the particle instance
   float vertices[] = {
     0.0,0.0,0.0
   };
@@ -399,5 +412,17 @@ int main(){
       frameId++;
     }
   }
+
+vertVAO, vertVBO; offsetVBO, thetaVBO; glyphVAO, glyphVBO;
+  glDeleteBuffers(1,&vertVBO);
+  glDeleteBuffers(1,&offsetVBO);
+  glDeleteBuffers(1,&thetaVBO);
+  glDeleteBuffers(1,&glyphVBO);
+
+  glDeleteVertexArrays(1,&vertVAO);
+  glDeleteVertexArrays(1,&glyphVAO);
+
+  glDeleteProgram(shader);
+  glDeleteProgram(freeTypeShader);
   return 0;
 }

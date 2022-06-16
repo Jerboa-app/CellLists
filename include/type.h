@@ -1,6 +1,9 @@
 #ifndef TYPE_H
 #define TYPE_H
 
+// have a look at this https://learnopengl.com/In-Practice/Text-Rendering
+// Some modifications have been made, e.g to render \n characters as line breaks
+
 const char * vertexShader = "#version 330 core\n"
   "layout(location=0) in vec4 postex;\n"
   "out vec2 texCoords;\n"
@@ -22,6 +25,10 @@ const char * fragmentShader = "#version 330 core\n"
 struct FreeType {
   FreeType(FT_Library l, FT_Face f)
   : lib(l), face(f) {}
+  ~FreeType(){
+    FT_Done_Face(face);
+    FT_Done_FreeType(lib);
+  }
   const FT_Library lib;
   const FT_Face face;
 };
@@ -112,6 +119,7 @@ void renderText(
     for (c = text.begin(); c != text.end(); c++){
         Glyph ch = g[*c];
 
+        // quick and dirty line break
         if (*c == '\n'){
           y -= 32.0f;
           x = initalX;
