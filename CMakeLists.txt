@@ -13,9 +13,10 @@ find_package(OpenGL REQUIRED)
 find_package(GLEW REQUIRED)
 find_package(Freetype REQUIRED)
 find_package(SFML 2.5.1 COMPONENTS system window graphics audio REQUIRED)
+find_package(MPI REQUIRED)
 
-include_directories(include ${OPENGL_INCLUDE_DIRS} ${GLEW_INCLUDE_DIRS} ${FREETYPE_INCLUDE_DIRS})
+include_directories(include ${OPENGL_INCLUDE_DIRS} ${GLEW_INCLUDE_DIRS} ${FREETYPE_INCLUDE_DIRS} ${MPI_INCLUDE_DIRS})
 
 add_executable(Jerboa ${SOURCES})
 
-target_link_libraries(Jerboa sfml-system sfml-window sfml-graphics sfml-audio X11 ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES} ${FREETYPE_LIBRARIES})
+target_link_libraries(Jerboa sfml-system sfml-window sfml-graphics sfml-audio X11 ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES} ${FREETYPE_LIBRARIES} ${MPI_LIBRARIES})
