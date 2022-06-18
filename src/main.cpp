@@ -9,8 +9,12 @@
 #include <SFML/Graphics.hpp>
 #include <SFML/OpenGL.hpp>
 
+#include <orthoCam.h>
+
 #include <glUtils.h>
 #include <typeUtils.h>
+#include <utils.h>
+#include <shaders.h>
 
 #include <particles.cpp>
 
@@ -22,21 +26,33 @@
 #include <random>
 #include <iostream>
 #include <math.h>
+#include <vector>
 
 const int resX = 720;
 const int resY = 720;
 
-const int subSample = 2;
+const int subSample = 1;
 const int N = 100000;
-const float L = resX;                                                             // box length
+const float L = 1.0;                                                             // box length
 const float density = 0.75;
 const float r = 2*std::sqrt(L*L*density/(N*M_PI));                                // set r for given density
 const int Nc = std::ceil(L/r);                                                    // roughly optimal parameter
 const float delta = L/Nc;                                                         // side length of each cell
-const float dt = 1.0 / 60.0;
+const float dt = 1.0 / 600.0;
+// motion parameters
 const float k = 300.0;                                                            // "hardness" of hermonic collision force
-const float Dr = 0.001;
+const float Dr = 0.01;
 const float v0 = 1.0*r;
+const float drag = 1.0;
+const float rotDrag = 1.0;
+const float M = 0.1;
+const float J = 0.01;
+
+const float attractionStrength = 0.01;
+const float repellingStrength = 0.02;
+const int maxAttractors = 8;
+const int maxRepellors = 8;
+const float wellSize = r*5.0;
 
 std::default_random_engine generator;
 std::uniform_real_distribution<float> U(0.0,1.0);
@@ -50,10 +66,18 @@ double renderDeltas[60];
 // particle data
 float X[N*3];
 float Xp[N*3];
+float F[N*2];
+
+float noise[N*2];
+
 float offsets[N*2];
 float thetas[N];
+float thetap[N];
 uint64_t cells[Nc*Nc];
 uint64_t list[N];
+
+std::vector<glm::vec2> attractors;
+std::vector<glm::vec2> repellors;
 
 int main(){
 
@@ -65,7 +89,7 @@ int main(){
 
   sf::RenderWindow window(
     sf::VideoMode(resX,resY),
-    "SFML",
+    "Particles",
     sf::Style::Close|sf::Style::Titlebar,
     contextSettings
   );
@@ -84,6 +108,9 @@ int main(){
     X[i*3] = U(generator)*(L-2*r)+r;
     X[i*3+1] = U(generator)*(L-2*r)+r;
     X[i*3+2] = U(generator)*2.0*3.14;
+    Xp[i*3] = X[i*3];
+    Xp[i*3+1] = X[i*3+1];
+    Xp[i*3+2] = X[i*3+2];
     uint64_t c = int(floor(X[i*3]/delta))*Nc + int(floor(X[i*3+1]/delta));
     if (cells[c] == NULL_INDEX){
       cells[c] = uint64_t(i);
@@ -110,6 +137,7 @@ int main(){
   compileShader(freeTypeShader,vertexShader,fragmentShader);
   glUseProgram(freeTypeShader);
 
+  glm::mat4 defaultProj = glm::ortho(0.0,double(resX),0.0,double(resY),0.1,100.0);
   glm::mat4 textProj = glm::ortho(0.0,double(resX),0.0,double(resY));
   glUniformMatrix4fv(
     glGetUniformLocation(freeTypeShader,"proj"),
@@ -123,42 +151,8 @@ int main(){
   GlyphMap ASCII;
   loadASCIIGlyphs(freeType.face,ASCII);
 
-  // basic particle shader
-  // cmap(t) defines a periodic RGB colour map for t \in [0,1] using cubic
-  // interpolation that's hard coded, it's based upon the PHASE4 colour map
-  // from https://github.com/peterkovesi/PerceptualColourMaps.jl
-  // which is derived from ColorCET https://colorcet.com/
-  const char * vert = "#version 330 core\n"
-    "#define PI 3.14159265359\n"
-    "precision highp float;\n"
-    "layout(location = 0) in vec3 a_position;\n"
-    "layout(location = 1) in vec2 a_offset;\n"
-    "layout(location = 2) in float a_theta;\n"
-    "float poly(float x, vec4 param){return clamp(x*param.x+pow(x,2.0)*param.y+"
-    " pow(x,3.0)*param.z+param.w,0.0,1.0);\n}"
-    "vec4 cmap(float t){\n"
-    " return vec4( poly(t,vec4(1.2,-8.7,7.6,0.9)), poly(t,vec4(5.6,-13.4,7.9,0.2)), poly(t,vec4(-7.9,16.0,-8.4,1.2)), 1.0 );}"
-    "uniform mat4 proj; uniform float scale; uniform float zoom;\n"
-    "out vec4 o_colour;\n"
-    "void main(){\n"
-    " vec4 pos = proj*vec4(a_offset,0.0,1.0);\n"
-    " gl_Position = vec4(a_position.xy+pos.xy,0.0,1.0);\n"
-    " gl_PointSize = scale*zoom;\n"
-    " o_colour = cmap(a_theta/(2.0*PI));\n"
-    "}";
-  const char * frag = "#version 330 core\n"
-  "in vec4 o_colour; out vec4 colour;\n"
-  "void main(){\n"
-  " vec2 c = 2.0*gl_PointCoord-1.0;\n"
-  " float d = length(c);\n"
-  // bit of simple AA
-  " float alpha = 1.0-smoothstep(0.99,1.01,d);\n"
-  " colour = vec4(o_colour.rgb,alpha);\n"
-  " if (colour.a == 0.0){discard;}"
-  "}";
-
   GLuint shader = glCreateProgram();
-  compileShader(shader,vert,frag);
+  compileShader(shader,particleVertexShader,particleFragmentShader);
 
   glUseProgram(shader);
 
@@ -202,12 +196,10 @@ int main(){
 
   glError("Arrays and buffers for particles drawing :");
 
-  double zoomLevel = 1.0;
+  OrthoCam camera(resX,resY,glm::vec2(0.0,0.0));
 
-  glm::mat4 trans = glm::mat4(1.0f);
-  glm::mat4 view = glm::translate(trans,glm::vec3(0.0,0.0,0.0));
-  glm::mat4 proj = glm::ortho(0.0,double(resX)/zoomLevel,0.0,double(resY)/zoomLevel,0.1,100.0);
-  proj = proj*view;
+  glm::mat4 proj = camera.getVP();
+
   glUniformMatrix4fv(
     glGetUniformLocation(shader,"proj"),
     1,
@@ -217,12 +209,63 @@ int main(){
 
   glUniform1f(
     glGetUniformLocation(shader,"scale"),
-    r
+    resX*r
   );
 
   glUniform1f(
     glGetUniformLocation(shader,"zoom"),
-    zoomLevel
+    camera.getZoomLevel()
+  );
+
+  // attraction repulsion gl
+  GLuint atrepShader = glCreateProgram();
+  compileShader(atrepShader,atrepVertexShader,atRepfragmentShader);
+
+  glUseProgram(atrepShader);
+
+  glUniform1f(
+    glGetUniformLocation(atrepShader,"maxNANR"),
+    float(maxRepellors+maxAttractors)
+  );
+
+  GLuint atRepOffsetVBO, atRepVAO;
+  float atRepOffsets[maxRepellors+maxAttractors];
+  for (int i = 0; i < maxRepellors+maxAttractors; i++){
+    atRepOffsets[i] = float(i);
+  }
+  glGenBuffers(1,&atRepOffsetVBO);
+  glGenVertexArrays(1,&atRepVAO);
+  glBindVertexArray(atRepVAO);
+
+  glBindBuffer(GL_ARRAY_BUFFER,vertVBO);
+  glBufferData(GL_ARRAY_BUFFER,sizeof(vertices),vertices,GL_STATIC_DRAW);
+  glEnableVertexAttribArray(0);
+  glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,3*sizeof(float),(void*)0);
+
+  glBindBuffer(GL_ARRAY_BUFFER,atRepOffsetVBO);
+  glBufferData(GL_ARRAY_BUFFER,sizeof(atRepOffsets),atRepOffsets,GL_STATIC_DRAW);
+  glEnableVertexAttribArray(1);
+  glVertexAttribPointer(1,1,GL_FLOAT,GL_FALSE,1*sizeof(float),(void*)0);
+  glVertexAttribDivisor(1,1);
+  glBindBuffer(GL_ARRAY_BUFFER, 0);
+  glBindVertexArray(0);
+
+  glError("Arrays and buffers for atrep drawing :");
+
+  glUseProgram(atrepShader);
+
+  atrepUniforms(
+    atrepShader,
+    attractors,
+    repellors,
+    maxAttractors,
+    maxRepellors,
+    proj,
+    wellSize*resX,
+    camera.getZoomLevel(),
+    frameId,
+    60.0,
+    maxRepellors+maxAttractors
   );
 
   glViewport(0,0,resX,resY);
@@ -240,58 +283,133 @@ int main(){
   glBindVertexArray(0);
   glError("Arrays and buffers for type :");
 
+  // box
+  GLuint boxShader = glCreateProgram();
+  compileShader(boxShader,boxVertexShader,boxFragmentShader);
 
-  double mouseX = 220.0;
-  double mouseY = 220.0;
+  GLuint boxVAO, boxVBO;
+  glGenVertexArrays(1,&boxVAO);
+  glGenBuffers(1,&boxVBO);
+  glBindVertexArray(boxVAO);
+  glBindBuffer(GL_ARRAY_BUFFER,boxVBO);
+  glBufferData(GL_ARRAY_BUFFER,sizeof(float)*6*2,NULL,GL_DYNAMIC_DRAW);
+  glEnableVertexAttribArray(0);
+  glVertexAttribPointer(0,2,GL_FLOAT,GL_FALSE,2*sizeof(float),0);
+  glBindBuffer(GL_ARRAY_BUFFER,0);
+  glBindVertexArray(0);
+  glError("Arrays and buffers for box");
 
-  double x = 220.0;
-  double y = 220.0;
+  double oldMouseX = 0.0;
+  double oldMouseY = 0.0;
 
-  bool scrolled = false;
+  double mouseX = resX/2.0;
+  double mouseY = resX/2.0;
+
   bool moving = false;
 
   double avgCollisionsPerFrame = 0.0;
 
+  bool placingAttractor = false;
+  bool placingRepellor = false;
+  bool pause = false;
+
   while (window.isOpen()){
 
     sf::Event event;
-    scrolled = false;
     while (window.pollEvent(event)){
       if (event.type == sf::Event::Closed){
         return 0;
       }
+
       if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::Escape){
         return 0;
       }
+
       if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::F1){
         debug = !debug;
       }
+
+      if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::A){
+        if (placingAttractor){
+          placingAttractor = false;
+        }
+        else{
+          placingRepellor = false;
+          placingAttractor = true;
+        }
+      }
+
+      if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::R){
+        if (placingRepellor){
+          placingRepellor = false;
+        }
+        else{
+          placingAttractor = false;
+          placingRepellor = true;
+        }
+      }
+
+      if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::Space){
+        pause = !pause;
+      }
+
       if (event.type == sf::Event::MouseWheelScrolled){
         mouseX = event.mouseWheelScroll.x;
         mouseY = event.mouseWheelScroll.y;
         double z = event.mouseWheelScroll.delta;
-        if (zoomLevel >= 1.0){
-          zoomLevel += z;
-          zoomLevel < 1.0 ? zoomLevel = 1.0 : 0;
-        }
-        else{
-          zoomLevel += 1.0/z;
-        }
-        scrolled = true;
+
+        camera.incrementZoom(z);
       }
+
+      if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Middle){
+        mouseX = event.mouseButton.x;
+        mouseY = event.mouseButton.y;
+
+        glm::vec4 worldPos = camera.screenToWorld(mouseX,mouseY);
+
+        camera.setPosition(worldPos.x,worldPos.y);
+      }
+
       if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left){
+        sf::Vector2i pos = sf::Mouse::getPosition(window);
+        // multiply by inverse of current projection
+        glm::vec4 worldPos = camera.screenToWorld(pos.x,pos.y);
+
+        if(!deleteAttratorRepellor(
+          worldPos.x,
+          worldPos.y,
+          attractors,
+          repellors,
+          r*0.1
+        )){
+          if (placingRepellor && repellors.size() < maxRepellors){
+            repellors.push_back(glm::vec2(worldPos.x,worldPos.y));
+          }
+          else if (placingAttractor && attractors.size() < maxAttractors){
+            attractors.push_back(glm::vec2(worldPos.x,worldPos.y));
+          }
+        }
       }
-      if (event.type == sf::Event::MouseMoved && sf::Mouse::isButtonPressed(sf::Mouse::Left)){
-        moving = true;
+
+      if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left && !(placingRepellor||placingAttractor)){
+        sf::Vector2i pos = sf::Mouse::getPosition(window);
+        oldMouseX = pos.x;
+        oldMouseY = pos.y;
       }
-      if (event.type == sf::Event::MouseButtonReleased && event.mouseButton.button == sf::Mouse::Left){
-        moving = false;
+
+      if (event.type == sf::Event::MouseButtonReleased && event.mouseButton.button == sf::Mouse::Left && !(placingRepellor||placingAttractor)){
+        sf::Vector2i pos = sf::Mouse::getPosition(window);
+
+        // multiply by inverse of current projection
+        glm::vec4 worldPosA = camera.screenToWorld(oldMouseX,oldMouseY);
+
+        glm::vec4 worldPosB = camera.screenToWorld(pos.x,pos.y);
+
+        glm::vec4 worldPosDelta = worldPosB-worldPosA;
+
+        camera.move(worldPosDelta.x,worldPosDelta.y);
       }
-      if (moving && sf::Mouse::isButtonPressed(sf::Mouse::Left)){
-        sf::Vector2i mouse = sf::Mouse::getPosition(window);
-        mouseX = 540.0-mouse.x;
-        mouseY = 540.0-mouse.y;
-      }
+
     }
 
     window.clear(sf::Color::White);
@@ -300,26 +418,38 @@ int main(){
     avgCollisionsPerFrame = 0.0;
 
     physClock.restart();
-    for (int s = 0; s < subSample; s++){
-      uint64_t nc = step(
-        X,
-        Xp,
-        list,
-        cells,
-        offsets,
-        thetas,
-        generator,
-        N,
-        Nc,
-        delta,
-        L,
-        r,
-        v0,
-        Dr,
-        k,
-        1.0/300.0
-      );
-      avgCollisionsPerFrame += nc;
+    if (!pause){
+      for (int s = 0; s < subSample; s++){
+        uint64_t nc = step(
+          X,
+          Xp,
+          F,
+          noise,
+          list,
+          cells,
+          offsets,
+          thetas,
+          attractors,
+          repellors,
+          generator,
+          N,
+          Nc,
+          delta,
+          L,
+          r,
+          v0,
+          Dr,
+          k,
+          drag,
+          rotDrag,
+          M,
+          J,
+          attractionStrength,
+          repellingStrength,
+          dt
+        );
+        avgCollisionsPerFrame += nc;
+      }
     }
     physDeltas[frameId] = physClock.getElapsedTime().asSeconds();
     avgCollisionsPerFrame /= double(subSample);
@@ -327,12 +457,9 @@ int main(){
     renderClock.restart();
 
     glUseProgram(shader);
-    x = mouseX; y = (resX-mouseY);
-    glm::mat4 view = glm::translate(glm::mat4(1.0),glm::vec3(x,y,0.0)) *
-      glm::scale(glm::mat4(1.0),glm::vec3(zoomLevel,zoomLevel,0.0)) *
-      glm::translate(glm::mat4(1.0),glm::vec3(-x,-y,0.0));
-    proj = glm::ortho(0.0,double(resX),0.0,double(resY),0.1,100.0);
-    proj = proj*view;
+
+    proj = camera.getVP();
+
     glUniformMatrix4fv(
       glGetUniformLocation(shader,"proj"),
       1,
@@ -342,8 +469,9 @@ int main(){
 
     glUniform1f(
       glGetUniformLocation(shader,"zoom"),
-      zoomLevel
+      camera.getZoomLevel()
     );
+
     glBindBuffer(GL_ARRAY_BUFFER,offsetVBO);
     glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(float)*N*2,&offsets[0]);
     glBindBuffer(GL_ARRAY_BUFFER,0);
@@ -377,14 +505,19 @@ int main(){
 
       sf::Vector2i mouse = sf::Mouse::getPosition(window);
 
+      float cameraX = camera.getPosition().x;
+      float cameraY = camera.getPosition().y;
+
       debugText << "Particles: " << N <<
-        "\n" << 
+        "\n" <<
         "Delta: " << fixedLengthNumber(delta,6) <<
         " (FPS: " << fixedLengthNumber(1.0/delta,4) << ")" <<
         "\n" <<
         "Render/Physics: " << fixedLengthNumber(renderDelta,6) << "/" << fixedLengthNumber(physDelta,6) <<
         "\n" <<
         "Mouse (" << fixedLengthNumber(mouse.x,4) << "," << fixedLengthNumber(mouse.y,4) << ")" <<
+        "\n" <<
+        "Camera [world] (" << fixedLengthNumber(cameraX,4) << ", " << fixedLengthNumber(cameraY,4) << ")" <<
         "\n" <<
         "Collision/Frame: " << fixedLengthNumber(avgCollisionsPerFrame,6) <<
         "\n";
@@ -399,6 +532,94 @@ int main(){
         glyphVAO,glyphVBO
       );
     }
+
+    if (placingRepellor || placingAttractor){
+      glUseProgram(boxShader);
+
+      glUniformMatrix4fv(
+        glGetUniformLocation(boxShader,"proj"),
+        1,
+        GL_FALSE,
+        &textProj[0][0]
+      );
+
+      glUniform3f(
+        glGetUniformLocation(boxShader,"colour"),
+        1.0,1.0,1.0
+      );
+
+
+      float height = 64.0/resY;
+      float width = 1.25;
+      float offsetWidth = 64.0/resX;
+      float offsetHeight = 0.0;
+
+      glBindVertexArray(boxVAO);
+      glBindBuffer(GL_ARRAY_BUFFER,boxVBO);
+
+      float verts[6*2] = {
+        -1.0f+offsetWidth,          -1.0f+offsetHeight,
+        -1.0f+offsetWidth+width,    -1.0f+offsetHeight,
+        -1.0f+offsetWidth+width,    -1.0f+offsetHeight+ height,
+        -1.0f+offsetWidth,          -1.0f+offsetHeight,
+        -1.0f+offsetWidth,          -1.0f+offsetHeight+ height,
+        -1.0f+offsetWidth+width,    -1.0f+offsetHeight+ height
+      };
+
+      glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(verts),verts);
+      glDrawArrays(GL_TRIANGLES,0,6);
+      glBindVertexArray(0);
+      glBindTexture(GL_TEXTURE_2D, 0);
+    }
+
+    if (placingRepellor){
+      glUseProgram(freeTypeShader);
+      renderText(
+        ASCII,
+        freeTypeShader,
+        "Placeing repellor (R) to cancel",
+        64.0f,8.0f,
+        0.5f,
+        glm::vec3(1.0f,0.0f,0.0f),
+        glyphVAO,glyphVBO
+      );
+    }
+
+    if (placingAttractor){
+      glUseProgram(freeTypeShader);
+      renderText(
+        ASCII,
+        freeTypeShader,
+        "Placeing attractor (A) to cancel",
+        64.0f,8.0f,
+        0.5f,
+        glm::vec3(0.0f,1.0f,0.0f),
+        glyphVAO,glyphVBO
+      );
+    }
+
+
+    atrepUniforms(
+      atrepShader,
+      attractors,
+      repellors,
+      maxAttractors,
+      maxRepellors,
+      proj,
+      wellSize*resX,
+      camera.getZoomLevel(),
+      float(frameId),
+      60.0,
+      maxRepellors+maxAttractors
+    );
+
+    glBindBuffer(GL_ARRAY_BUFFER,atRepOffsetVBO);
+    glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(float)*(maxRepellors+maxAttractors),&atRepOffsets[0]);
+    glBindBuffer(GL_ARRAY_BUFFER,0);
+
+    glBindVertexArray(atRepVAO);
+    glDrawArraysInstanced(GL_POINTS,0,1,(maxRepellors+maxAttractors));
+    glBindVertexArray(0);
 
     window.display();
 

@@ -4,7 +4,7 @@
 // print buffer status errors
 GLuint glBufferStatus(const std::string c = ""){
     GLuint e = glCheckFramebufferStatus(GL_FRAMEBUFFER);
-    if (e != GL_FRAMEBUFFER_COMPLETE){std::cout << c;}
+    if (e != GL_FRAMEBUFFER_COMPLETE){std::cout << c; return e;}
     switch(e){
         case GL_FRAMEBUFFER_UNDEFINED:
         std::cout << "GLERROR: GL_FRAMEBUFFER_UNDEFINED\n";
