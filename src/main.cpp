@@ -41,7 +41,7 @@ const float delta = L/Nc;                                                       
 const float dt = 1.0 / 600.0;
 // motion parameters
 const float k = 300.0;                                                            // "hardness" of hermonic collision force
-const float Dr = 0.001;
+const float Dr = 0.01;
 const float v0 = 1.0*r;
 const float drag = 1.0;
 const float rotDrag = 1.0;
@@ -283,6 +283,21 @@ int main(){
   glBindVertexArray(0);
   glError("Arrays and buffers for type :");
 
+  // box
+  GLuint boxShader = glCreateProgram();
+  compileShader(boxShader,boxVertexShader,boxFragmentShader);
+
+  GLuint boxVAO, boxVBO;
+  glGenVertexArrays(1,&boxVAO);
+  glGenBuffers(1,&boxVBO);
+  glBindVertexArray(boxVAO);
+  glBindBuffer(GL_ARRAY_BUFFER,boxVBO);
+  glBufferData(GL_ARRAY_BUFFER,sizeof(float)*6*2,NULL,GL_DYNAMIC_DRAW);
+  glEnableVertexAttribArray(0);
+  glVertexAttribPointer(0,2,GL_FLOAT,GL_FALSE,2*sizeof(float),0);
+  glBindBuffer(GL_ARRAY_BUFFER,0);
+  glBindVertexArray(0);
+  glError("Arrays and buffers for box");
 
   double oldMouseX = 0.0;
   double oldMouseY = 0.0;
@@ -296,6 +311,7 @@ int main(){
 
   bool placingAttractor = false;
   bool placingRepellor = false;
+  bool pause = false;
 
   while (window.isOpen()){
 
@@ -304,12 +320,15 @@ int main(){
       if (event.type == sf::Event::Closed){
         return 0;
       }
+
       if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::Escape){
         return 0;
       }
+
       if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::F1){
         debug = !debug;
       }
+
       if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::A){
         if (placingAttractor){
           placingAttractor = false;
@@ -319,6 +338,7 @@ int main(){
           placingAttractor = true;
         }
       }
+
       if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::R){
         if (placingRepellor){
           placingRepellor = false;
@@ -328,6 +348,11 @@ int main(){
           placingRepellor = true;
         }
       }
+
+      if (event.type == sf::Event::KeyPressed && event.key.code == sf::Keyboard::Space){
+        pause = !pause;
+      }
+
       if (event.type == sf::Event::MouseWheelScrolled){
         mouseX = event.mouseWheelScroll.x;
         mouseY = event.mouseWheelScroll.y;
@@ -335,6 +360,7 @@ int main(){
 
         camera.incrementZoom(z);
       }
+
       if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Middle){
         mouseX = event.mouseButton.x;
         mouseY = event.mouseButton.y;
@@ -343,6 +369,7 @@ int main(){
 
         camera.setPosition(worldPos.x,worldPos.y);
       }
+
       if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left){
         sf::Vector2i pos = sf::Mouse::getPosition(window);
         // multiply by inverse of current projection
@@ -363,11 +390,13 @@ int main(){
           }
         }
       }
+
       if (event.type == sf::Event::MouseButtonPressed && event.mouseButton.button == sf::Mouse::Left && !(placingRepellor||placingAttractor)){
         sf::Vector2i pos = sf::Mouse::getPosition(window);
         oldMouseX = pos.x;
         oldMouseY = pos.y;
       }
+
       if (event.type == sf::Event::MouseButtonReleased && event.mouseButton.button == sf::Mouse::Left && !(placingRepellor||placingAttractor)){
         sf::Vector2i pos = sf::Mouse::getPosition(window);
 
@@ -380,6 +409,7 @@ int main(){
 
         camera.move(worldPosDelta.x,worldPosDelta.y);
       }
+
     }
 
     window.clear(sf::Color::White);
@@ -388,36 +418,38 @@ int main(){
     avgCollisionsPerFrame = 0.0;
 
     physClock.restart();
-    for (int s = 0; s < subSample; s++){
-      uint64_t nc = step(
-        X,
-        Xp,
-        F,
-        noise,
-        list,
-        cells,
-        offsets,
-        thetas,
-        attractors,
-        repellors,
-        generator,
-        N,
-        Nc,
-        delta,
-        L,
-        r,
-        v0,
-        Dr,
-        k,
-        drag,
-        rotDrag,
-        M,
-        J,
-        attractionStrength,
-        repellingStrength,
-        dt
-      );
-      avgCollisionsPerFrame += nc;
+    if (!pause){
+      for (int s = 0; s < subSample; s++){
+        uint64_t nc = step(
+          X,
+          Xp,
+          F,
+          noise,
+          list,
+          cells,
+          offsets,
+          thetas,
+          attractors,
+          repellors,
+          generator,
+          N,
+          Nc,
+          delta,
+          L,
+          r,
+          v0,
+          Dr,
+          k,
+          drag,
+          rotDrag,
+          M,
+          J,
+          attractionStrength,
+          repellingStrength,
+          dt
+        );
+        avgCollisionsPerFrame += nc;
+      }
     }
     physDeltas[frameId] = physClock.getElapsedTime().asSeconds();
     avgCollisionsPerFrame /= double(subSample);
@@ -497,6 +529,71 @@ int main(){
         64.0f,resY-64.0f,
         0.5f,
         glm::vec3(0.0f,0.0f,0.0f),
+        glyphVAO,glyphVBO
+      );
+    }
+
+    if (placingRepellor || placingAttractor){
+      glUseProgram(boxShader);
+
+      glUniformMatrix4fv(
+        glGetUniformLocation(boxShader,"proj"),
+        1,
+        GL_FALSE,
+        &textProj[0][0]
+      );
+
+      glUniform3f(
+        glGetUniformLocation(boxShader,"colour"),
+        1.0,1.0,1.0
+      );
+
+
+      float height = 64.0/resY;
+      float width = 1.25;
+      float offsetWidth = 64.0/resX;
+      float offsetHeight = 0.0;
+
+      glBindVertexArray(boxVAO);
+      glBindBuffer(GL_ARRAY_BUFFER,boxVBO);
+
+      float verts[6*2] = {
+        -1.0f+offsetWidth,          -1.0f+offsetHeight,
+        -1.0f+offsetWidth+width,    -1.0f+offsetHeight,
+        -1.0f+offsetWidth+width,    -1.0f+offsetHeight+ height,
+        -1.0f+offsetWidth,          -1.0f+offsetHeight,
+        -1.0f+offsetWidth,          -1.0f+offsetHeight+ height,
+        -1.0f+offsetWidth+width,    -1.0f+offsetHeight+ height
+      };
+
+      glBufferSubData(GL_ARRAY_BUFFER,0,sizeof(verts),verts);
+      glDrawArrays(GL_TRIANGLES,0,6);
+      glBindVertexArray(0);
+      glBindTexture(GL_TEXTURE_2D, 0);
+    }
+
+    if (placingRepellor){
+      glUseProgram(freeTypeShader);
+      renderText(
+        ASCII,
+        freeTypeShader,
+        "Placeing repellor (R) to cancel",
+        64.0f,8.0f,
+        0.5f,
+        glm::vec3(1.0f,0.0f,0.0f),
+        glyphVAO,glyphVBO
+      );
+    }
+
+    if (placingAttractor){
+      glUseProgram(freeTypeShader);
+      renderText(
+        ASCII,
+        freeTypeShader,
+        "Placeing attractor (A) to cancel",
+        64.0f,8.0f,
+        0.5f,
+        glm::vec3(0.0f,1.0f,0.0f),
         glyphVAO,glyphVBO
       );
     }

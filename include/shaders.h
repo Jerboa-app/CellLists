@@ -1,6 +1,20 @@
 #ifndef SHADERS_H
 #define SHADERS_H
 
+const char * boxVertexShader = "#version 330 core\n"
+  "layout(location=0) in vec2 a_position;\n"
+  "uniform vec3 colour; out vec4 o_colour;\n"
+  "uniform mat4 proj;\n"
+  "void main(){\n"
+  " vec4 pos = vec4(a_position.xy,0.0,1.0);\n"
+  " o_colour = vec4(colour,.5);\n"
+  " gl_Position = pos;\n"
+  "}";
+
+const char * boxFragmentShader = "#version 330 core\n"
+  "in vec4 o_colour; out vec4 colour;\n"
+  "void main(){colour=o_colour;\n}";
+
 // basic particle shader
 // cmap(t) defines a periodic RGB colour map for t \in [0,1] using cubic
 // interpolation that's hard coded, it's based upon the PHASE4 colour map
