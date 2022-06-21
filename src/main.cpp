@@ -12,15 +12,11 @@
 #include <orthoCam.h>
 
 #include <glUtils.h>
-#include <typeUtils.h>
 #include <utils.h>
 #include <shaders.h>
 
 #include <particles.cpp>
-
-#include <ft2build.h>
-#include FT_FREETYPE_H
-#include <type.h>
+#include <Text/textRenderer.cpp>
 
 #include <time.h>
 #include <random>
@@ -123,8 +119,8 @@ int main(){
   sf::Clock clock;
   sf::Clock physClock, renderClock;
 
-  // for freetype rendering
-  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+  glm::mat4 defaultProj = glm::ortho(0.0,double(resX),0.0,double(resY),0.1,100.0);
+  glm::mat4 textProj = glm::ortho(0.0,double(resX),0.0,double(resY));
 
   // for rendering particles using gl_point instances
   glEnable(GL_PROGRAM_POINT_SIZE);
@@ -133,23 +129,13 @@ int main(){
   glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
   glDisable(GL_DEPTH_TEST);
 
-  GLuint freeTypeShader = glCreateProgram();
-  compileShader(freeTypeShader,vertexShader,fragmentShader);
-  glUseProgram(freeTypeShader);
+  // for freetype rendering
+  glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
-  glm::mat4 defaultProj = glm::ortho(0.0,double(resX),0.0,double(resY),0.1,100.0);
-  glm::mat4 textProj = glm::ortho(0.0,double(resX),0.0,double(resY));
-  glUniformMatrix4fv(
-    glGetUniformLocation(freeTypeShader,"proj"),
-    1,
-    GL_FALSE,
-    &textProj[0][0]
-  );
+  // must be initialised before so the shader is in use..?
+  TextRenderer textRenderer(textProj);
 
-  FreeType freeType = initFreetype();
-
-  GlyphMap ASCII;
-  loadASCIIGlyphs(freeType.face,ASCII);
+  Type OD("resources/fonts/","OpenDyslexic-Regular.otf",48);
 
   GLuint shader = glCreateProgram();
   compileShader(shader,particleVertexShader,particleFragmentShader);
@@ -269,19 +255,6 @@ int main(){
   );
 
   glViewport(0,0,resX,resY);
-
-  // text buffers
-  GLuint glyphVAO, glyphVBO;
-  glGenVertexArrays(1,&glyphVAO);
-  glGenBuffers(1,&glyphVBO);
-  glBindVertexArray(glyphVAO);
-  glBindBuffer(GL_ARRAY_BUFFER, glyphVBO);
-  glBufferData(GL_ARRAY_BUFFER,sizeof(float)*6*4,NULL,GL_DYNAMIC_DRAW);
-  glEnableVertexAttribArray(0);
-  glVertexAttribPointer(0,4,GL_FLOAT,GL_FALSE,4*sizeof(float),0);
-  glBindBuffer(GL_ARRAY_BUFFER, 0);
-  glBindVertexArray(0);
-  glError("Arrays and buffers for type :");
 
   // box
   GLuint boxShader = glCreateProgram();
@@ -486,10 +459,6 @@ int main(){
     glBindVertexArray(0);
 
     if (debug){
-      glError();
-      glUseProgram(freeTypeShader);
-      glError("Setting type projection matrix: ");
-
       double delta = 0.0;
       double renderDelta = 0.0;
       double physDelta = 0.0;
@@ -522,14 +491,12 @@ int main(){
         "Collision/Frame: " << fixedLengthNumber(avgCollisionsPerFrame,6) <<
         "\n";
 
-      renderText(
-        ASCII,
-        freeTypeShader,
+      textRenderer.renderText(
+        OD,
         debugText.str(),
         64.0f,resY-64.0f,
         0.5f,
-        glm::vec3(0.0f,0.0f,0.0f),
-        glyphVAO,glyphVBO
+        glm::vec3(0.0f,0.0f,0.0f)
       );
     }
 
@@ -540,7 +507,7 @@ int main(){
         glGetUniformLocation(boxShader,"proj"),
         1,
         GL_FALSE,
-        &textProj[0][0]
+        &defaultProj[0][0]
       );
 
       glUniform3f(
@@ -573,28 +540,22 @@ int main(){
     }
 
     if (placingRepellor){
-      glUseProgram(freeTypeShader);
-      renderText(
-        ASCII,
-        freeTypeShader,
+      textRenderer.renderText(
+        OD,
         "Placeing repellor (R) to cancel",
         64.0f,8.0f,
         0.5f,
-        glm::vec3(1.0f,0.0f,0.0f),
-        glyphVAO,glyphVBO
+        glm::vec3(1.0f,0.0f,0.0f)
       );
     }
 
     if (placingAttractor){
-      glUseProgram(freeTypeShader);
-      renderText(
-        ASCII,
-        freeTypeShader,
+      textRenderer.renderText(
+        OD,
         "Placeing attractor (A) to cancel",
         64.0f,8.0f,
         0.5f,
-        glm::vec3(0.0f,1.0f,0.0f),
-        glyphVAO,glyphVBO
+        glm::vec3(0.0f,1.0f,0.0f)
       );
     }
 
@@ -636,16 +597,12 @@ int main(){
     }
   }
 
-vertVAO, vertVBO; offsetVBO, thetaVBO; glyphVAO, glyphVBO;
   glDeleteBuffers(1,&vertVBO);
   glDeleteBuffers(1,&offsetVBO);
   glDeleteBuffers(1,&thetaVBO);
-  glDeleteBuffers(1,&glyphVBO);
 
   glDeleteVertexArrays(1,&vertVAO);
-  glDeleteVertexArrays(1,&glyphVAO);
 
   glDeleteProgram(shader);
-  glDeleteProgram(freeTypeShader);
   return 0;
 }
