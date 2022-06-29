@@ -24,8 +24,7 @@ const char * particleVertexShader = "#version 330 core\n"
   "#define PI 3.14159265359\n"
   "precision highp float;\n"
   "layout(location = 0) in vec3 a_position;\n"
-  "layout(location = 1) in vec2 a_offset;\n"
-  "layout(location = 2) in float a_theta;\n"
+  "layout(location = 1) in vec3 a_offset;\n"
   "float poly(float x, vec4 param){return clamp(x*param.x+pow(x,2.0)*param.y+"
   " pow(x,3.0)*param.z+param.w,0.0,1.0);\n}"
   "vec4 cmap(float t){\n"
@@ -33,10 +32,10 @@ const char * particleVertexShader = "#version 330 core\n"
   "uniform mat4 proj; uniform float scale; uniform float zoom;\n"
   "out vec4 o_colour;\n"
   "void main(){\n"
-  " vec4 pos = proj*vec4(a_offset,0.0,1.0);\n"
+  " vec4 pos = proj*vec4(a_offset.xy,0.0,1.0);\n"
   " gl_Position = vec4(a_position.xy+pos.xy,0.0,1.0);\n"
   " gl_PointSize = scale*zoom;\n"
-  " o_colour = cmap(a_theta/(2.0*PI));\n"
+  " o_colour = cmap(mod(a_offset.z,2.0*PI)/(2.0*PI));\n"
   "}";
 const char * particleFragmentShader = "#version 330 core\n"
   "in vec4 o_colour; out vec4 colour;\n"
@@ -83,93 +82,5 @@ const char * atRepfragmentShader= "#version 330 core\n"
   " colour = vec4(o_colour.rgb,alpha);\n"
   " if (colour.a == 0.0){discard;}"
   "}";
-
-  glm::mat4 attractionRepulsionMatrix(std::vector<glm::vec2> & data, int m){
-    glm::mat4 ar(0.0f);
-    for (int i = 0; i < m; i++){
-      if (i < data.size()){
-        int col = floor(i)/2.0;
-        int o = int(2.0*fmod(float(i),2.0));
-        ar[col][o] = data[i].x;
-        ar[col][o+1] = data[i].y;
-      }
-    }
-    return ar;
-  }
-
-  void atrepUniforms(
-    GLuint & atrepShader,
-    std::vector<glm::vec2> &  attractors,
-    std::vector<glm::vec2> &  repellors,
-    int maxAttractors,
-    int maxRepellors,
-    glm::mat4 & proj,
-    float r,
-    float zoomLevel,
-    float t,
-    float T,
-    int maxToys
-  ){
-    glUseProgram(atrepShader);
-
-    glm::mat4 attractionMatrix = attractionRepulsionMatrix(attractors,maxAttractors);
-    glm::mat4 repulsionMatrix = attractionRepulsionMatrix(repellors,maxRepellors);
-
-    glUniform1f(
-      glGetUniformLocation(atrepShader,"maxNANR"),
-      float(maxToys)
-    );
-
-    glUniformMatrix4fv(
-      glGetUniformLocation(atrepShader,"proj"),
-      1,
-      GL_FALSE,
-      &proj[0][0]
-    );
-
-    glUniformMatrix4fv(
-      glGetUniformLocation(atrepShader,"attr"),
-      1,
-      GL_FALSE,
-      &attractionMatrix[0][0]
-    );
-
-    glUniformMatrix4fv(
-      glGetUniformLocation(atrepShader,"rep"),
-      1,
-      GL_FALSE,
-      &repulsionMatrix[0][0]
-    );
-
-    glUniform1f(
-      glGetUniformLocation(atrepShader,"scale"),
-      r
-    );
-
-    glUniform1f(
-      glGetUniformLocation(atrepShader,"zoom"),
-      zoomLevel
-    );
-
-    glUniform1f(
-      glGetUniformLocation(atrepShader,"t"),
-      t
-    );
-
-    glUniform1f(
-      glGetUniformLocation(atrepShader,"T"),
-      T
-    );
-
-    glUniform1i(
-      glGetUniformLocation(atrepShader,"na"),
-      attractors.size()
-    );
-
-    glUniform1i(
-      glGetUniformLocation(atrepShader,"nr"),
-      repellors.size()
-    );
-  }
 
 #endif
