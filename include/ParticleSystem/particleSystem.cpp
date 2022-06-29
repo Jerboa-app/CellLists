@@ -148,33 +148,33 @@ void ParticleSystem::step(){
 
   for (int i = 0; i < nParticles; i++){
 
-    // for (int j = 0; j < attractors.size(); j++){
-    //     float rx = attractors[j*2]-state[i*3];
-    //     float ry = attractors[j*2+1]-state[i*3+1];
-    //
-    //     float d = sqrt(rx*rx+ry*ry);
-    //
-    //     if (d < radius){
-    //       std::uniform_real_distribution<float> U(0.0,6.28);
-    //       float theta = U(generator);
-    //       forces[i*2] -= attractionStrength*cos(theta)/d;
-    //       forces[i*2+1] -= attractionStrength*sin(theta)/d;
-    //     }
-    //     else{
-    //       d = d*d*d;
-    //       forces[i*2] += attractionStrength*rx/d;
-    //       forces[i*2+1] += attractionStrength*ry/d;
-    //     }
-    //   }
-    // for (int j = 0; j < repellers.size(); j++){
-    //     float rx = state[i*3]-repellers[j*2];
-    //     float ry = state[i*3+1]-repellers[j*2+1];
-    //
-    //     float dd = rx*rx+ry*ry;
-    //
-    //     forces[i*2] += repellingStrength*rx/dd;
-    //     forces[i*2+1] += repellingStrength*ry/dd;
-    // }
+    for (int j = 0; j < nAttractors(); j++){
+        float rx = attractors[j*2]-state[i*3];
+        float ry = attractors[j*2+1]-state[i*3+1];
+
+        float d = sqrt(rx*rx+ry*ry);
+
+        if (d < radius){
+          std::uniform_real_distribution<float> U(0.0,6.28);
+          float theta = U(generator);
+          forces[i*2] -= attractionStrength*cos(theta)/d;
+          forces[i*2+1] -= attractionStrength*sin(theta)/d;
+        }
+        else{
+          d = d*d*d;
+          forces[i*2] += attractionStrength*rx/d;
+          forces[i*2+1] += attractionStrength*ry/d;
+        }
+      }
+    for (int j = 0; j < nRepellers(); j++){
+        float rx = state[i*3]-repellers[j*2];
+        float ry = state[i*3+1]-repellers[j*2+1];
+
+        float dd = rx*rx+ry*ry;
+
+        forces[i*2] += repellingStrength*rx/dd;
+        forces[i*2+1] += repellingStrength*ry/dd;
+    }
 
     noise[i*2+1] = noise[i*2];
     noise[i*2] = normal(generator);
@@ -319,8 +319,6 @@ void ParticleSystem::initialiseGL(){
   compileShader(arShader,atrepVertexShader,atRepfragmentShader);
   glUseProgram(arShader);
 
-  fillARMatrix();
-
   glUniform1f(
     glGetUniformLocation(arShader,"maxNANR"),
     float(8)
@@ -341,11 +339,6 @@ void ParticleSystem::initialiseGL(){
   );
 
   glUniform1f(
-    glGetUniformLocation(arShader,"scale"),
-    radius*5.0
-  );
-
-  glUniform1f(
     glGetUniformLocation(arShader,"T"),
     ARPERIOD
   );
@@ -353,25 +346,17 @@ void ParticleSystem::initialiseGL(){
   glError("initialised toys");
 }
 
-void ParticleSystem::fillARMatrix(){
-  arPositions = glm::mat4(0.0);
-  for (int i = 0; i < 8; i++){
-    if (i < nAttractors()){
+glm::mat4 attractionRepulsionMatrix(std::vector<float> & data, int m){
+  glm::mat4 ar(0.0f);
+  for (int i = 0; i < m; i++){
+    if (i < floor(data.size()/2.0)){
       int col = floor(i)/2.0;
       int o = int(2.0*fmod(float(i),2.0));
-      arPositions[col][o] = attractors[i*2];
-      arPositions[col][o+1] = attractors[i*2+1];
+      ar[col][o] = data[i*2];
+      ar[col][o+1] = data[i*2+1];
     }
   }
-
-  for (int i = 0; i < 8; i++){
-    if (i < nRepellers()){
-      int col = floor(i+8)/2.0;
-      int o = int(2.0*fmod(float(i+8),2.0));
-      arPositions[col][o] = repellers[i*2];
-      arPositions[col][o+1] = repellers[i*2+1];
-    }
-  }
+  return ar;
 }
 
 void ParticleSystem::draw(
@@ -412,18 +397,40 @@ void ParticleSystem::draw(
   );
 
   glUniform1f(
+    glGetUniformLocation(arShader,"scale"),
+    radius*8.0*resX
+  );
+
+  glUniform1f(
     glGetUniformLocation(arShader,"t"),
     frameId % ARPERIOD
   );
 
   glUniform1i(
     glGetUniformLocation(arShader,"na"),
-    attractors.size()
+    nAttractors()
   );
 
   glUniform1i(
     glGetUniformLocation(arShader,"nr"),
-    repellers.size()
+    nRepellers()
+  );
+
+  glm::mat4 A = attractionRepulsionMatrix(attractors,8);
+  glm::mat4 R = attractionRepulsionMatrix(repellers,8);
+
+  glUniformMatrix4fv(
+    glGetUniformLocation(arShader,"attr"),
+    1,
+    GL_FALSE,
+    &A[0][0]
+  );
+
+  glUniformMatrix4fv(
+    glGetUniformLocation(arShader,"rep"),
+    1,
+    GL_FALSE,
+    &R[0][0]
   );
 
   glBindBuffer(GL_ARRAY_BUFFER,arOffsetVBO);

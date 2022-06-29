@@ -109,7 +109,7 @@ int main(){
   double oldMouseY = 0.0;
 
   double mouseX = resX/2.0;
-  double mouseY = resX/2.0;
+  double mouseY = resY/2.0;
 
   bool moving = false;
 
