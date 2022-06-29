@@ -7,22 +7,22 @@ GLuint glBufferStatus(const std::string c = ""){
     if (e != GL_FRAMEBUFFER_COMPLETE){std::cout << c; return e;}
     switch(e){
         case GL_FRAMEBUFFER_UNDEFINED:
-        std::cout << "GLERROR: GL_FRAMEBUFFER_UNDEFINED\n";
+        std::cout << " GLERROR: GL_FRAMEBUFFER_UNDEFINED\n";
             break;
         case GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT:
-            std::cout << "GLERROR: GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT\n";
+            std::cout << " GLERROR: GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT\n";
             break;
 
         case GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT:
-            std::cout << "GLERROR: GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT\n";
+            std::cout << " GLERROR: GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT\n";
             break;
 
         case GL_FRAMEBUFFER_UNSUPPORTED:
-            std::cout << "GLERROR: GL_FRAMEBUFFER_UNSUPPORTED\n";
+            std::cout << " GLERROR: GL_FRAMEBUFFER_UNSUPPORTED\n";
             break;
 
         case GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE:
-            std::cout << "GLERROR: GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE\n";
+            std::cout << " GLERROR: GL_FRAMEBUFFER_INCOMPLETE_MULTISAMPLE\n";
             break;
     }
     return e;
@@ -36,19 +36,19 @@ GLuint glError(const std::string c = ""){
         case GL_NO_ERROR:
          break;
         case GL_INVALID_ENUM:
-            std::cout << "GL_INVALID_ENUM\n";
+            std::cout << " GL_INVALID_ENUM\n";
             break;
         case GL_INVALID_VALUE:
-            std::cout << "GLERROR: GL_INVALID_VALUE\n";
+            std::cout << " GLERROR: GL_INVALID_VALUE\n";
             break;
         case GL_INVALID_OPERATION:
-            std::cout << "GLERROR: GL_INVALID_OPERATION\n";
+            std::cout << " GLERROR: GL_INVALID_OPERATION\n";
             break;
         case GL_OUT_OF_MEMORY:
-            std::cout << "GLERROR: GL_OUT_OF_MEMORY\n";
+            std::cout << " GLERROR: GL_OUT_OF_MEMORY\n";
             break;
         case GL_INVALID_FRAMEBUFFER_OPERATION:
-            std::cout << "GLERROR: GL_INVALID_FRAMEBUFFER_OPERATION\n";
+            std::cout << " GLERROR: GL_INVALID_FRAMEBUFFER_OPERATION\n";
             break;
     }
     return e;
