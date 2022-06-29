@@ -1,4 +1,4 @@
-#include <particles.h>
+#include <ParticleSystem/particles.h>
 
 /*
   X is an array of position-orientation states (x,y,theta) for N particles.
