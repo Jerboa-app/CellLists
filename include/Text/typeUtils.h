@@ -4,6 +4,9 @@
 #include <Text/type.h>
 
 void loadASCIIGlyphs(const FT_Face & face, GlyphMap & g){
+  // have a look at this https://learnopengl.com/In-Practice/Text-Rendering
+  // Some modifications have been made, e.g to render \n characters as line breaks
+
   for (unsigned char c = 0; c < 128; c++/*ayy lmao*/){
     if (FT_Load_Char(face, c, FT_LOAD_RENDER)){
       std::cout << "Failed to load glyph " << c << " from ASCII charset\n";

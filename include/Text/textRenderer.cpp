@@ -34,6 +34,9 @@ void TextRenderer::renderText(
   float y,
   float scale,
   glm::vec3 colour){
+    // have a look at this https://learnopengl.com/In-Practice/Text-Rendering
+    // Some modifications have been made, e.g to render \n characters as line breaks
+
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glBindVertexArray(0);
     glUseProgram(shader);

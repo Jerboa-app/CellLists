@@ -23,7 +23,4 @@ private:
   std::string name;
 };
 
-// have a look at this https://learnopengl.com/In-Practice/Text-Rendering
-// Some modifications have been made, e.g to render \n characters as line breaks
-
 #endif
