@@ -30,16 +30,28 @@ Uses C++ with SFML and OpenGL
 
 First ensure you have the SFML dependencies installed in ubuntu this can be achieved via
 
-```bash apt-get install build-essential mesa-common-dev libx11-dev libxrandr-dev libgl1-mesa-dev liblgu1-mesa-dev libfreetype6-dev libopenal-dev libsndfile1-dev libudev-dev```
+```console
+apt-get install build-essential mesa-common-dev libx11-dev libxrandr-dev libgl1-mesa-dev liblgu1-mesa-dev libfreetype6-dev libopenal-dev libsndfile1-dev libudev-dev
+```
 
 Additionally install the glm developement libraries
 
-```bash apt-get install libglm-dev```
+```console
+apt-get install libglm-dev
+```
 
-Run ```./dependencies.sh && ./build.sh```
+Run 
+
+```console
+./dependencies.sh && ./build.sh
+```
 
 which will build sfml statically and run cmake to build the game
 
 #### If not building SFML from source
 
-Ensure the ```SFML_DIR`` environment variable is set correctly and run ```./build.sh```
+Ensure the ```SFML_DIR`` environment variable is set correctly and run 
+
+```console
+./build.sh
+```
