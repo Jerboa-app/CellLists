@@ -50,7 +50,7 @@ which will build sfml statically and run cmake to build the game
 
 #### If not building SFML from source
 
-Ensure the ```SFML_DIR`` environment variable is set correctly and run 
+Ensure the ```SFML_DIR``` environment variable is set correctly and run 
 
 ```console
 ./build.sh
