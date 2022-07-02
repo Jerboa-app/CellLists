@@ -37,9 +37,9 @@ void ParticleSystem::handleCollision(uint64_t i, uint64_t j){
   rx = state[j*3]-state[i*3];
   ry = state[j*3+1]-state[i*3+1];
   dd = rx*rx+ry*ry;
-  if (dd < radius*radius){
+  if (dd < 4.0*radius*radius){
     d = std::sqrt(dd);
-    mag = forceStrength*(radius-d)/d;
+    mag = forceStrength*(2.0*radius-d)/d;
     fx = mag*rx;
     fy = mag*ry;
 
