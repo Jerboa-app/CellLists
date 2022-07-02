@@ -25,13 +25,13 @@ std::normal_distribution<double> normal(0.0,1.0);
 class ParticleSystem{
 public:
 
-  ParticleSystem(uint64_t N, float dt = 1.0/300.0, float density = 0.75, uint64_t seed = clock())
-  : nParticles(N), radius(2*std::sqrt(density/(N*M_PI))),speed(1.0*radius),drag(1.0),rotationalDrag(1.0),mass(0.1),
+  ParticleSystem(uint64_t N, float dt = 1.0/300.0, float density = 0.5, uint64_t seed = clock())
+  : nParticles(N), radius(std::sqrt(density/(N*M_PI))),speed(std::sqrt(density/(N*M_PI))/0.2),drag(1.0),rotationalDrag(1.0),mass(0.1),
     momentOfInertia(0.01), forceStrength(300.0),rotationalDiffusion(0.001),
     dt(dt)
   {
     generator.seed(seed);
-    Nc = std::ceil(1.0/radius);
+    Nc = std::ceil(1.0/(2.0*radius));
     delta = 1.0 / Nc;
 
     for (int c = 0; c < Nc*Nc; c++){
@@ -105,8 +105,8 @@ public:
     return uint64_t(std::floor(state.size() / 3));
   }
 
-  uint8_t nAttractors(){return uint8_t(std::floor(attractors.size()/2.0));}
-  uint8_t nRepellers(){return uint8_t(std::floor(repellers.size()/2.0));}
+  uint8_t nAttractors(){return uint8_t(attractors.size());}
+  uint8_t nRepellers(){return uint8_t(repellers.size());}
 
   void addRepeller(float x, float y);
   void addAttractor(float x, float y);
@@ -135,8 +135,8 @@ private:
   std::vector<float> noise;
 
   std::vector<float> forces;
-  std::vector<float> attractors;
-  std::vector<float> repellers;
+  std::vector<std::pair<float,float>> attractors;
+  std::vector<std::pair<float,float>> repellers;
 
   std::vector<uint64_t> cells;
   std::vector<uint64_t> list;
