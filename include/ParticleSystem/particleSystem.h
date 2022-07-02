@@ -31,7 +31,7 @@ public:
     dt(dt)
   {
     generator.seed(seed);
-    Nc = std::ceil(1.0/radius);
+    Nc = std::ceil(1.0/(2.0*radius));
     delta = 1.0 / Nc;
 
     for (int c = 0; c < Nc*Nc; c++){
@@ -105,8 +105,8 @@ public:
     return uint64_t(std::floor(state.size() / 3));
   }
 
-  uint8_t nAttractors(){return uint8_t(std::floor(attractors.size()/2.0));}
-  uint8_t nRepellers(){return uint8_t(std::floor(repellers.size()/2.0));}
+  uint8_t nAttractors(){return uint8_t(attractors.size());}
+  uint8_t nRepellers(){return uint8_t(repellers.size());}
 
   void addRepeller(float x, float y);
   void addAttractor(float x, float y);
@@ -135,8 +135,8 @@ private:
   std::vector<float> noise;
 
   std::vector<float> forces;
-  std::vector<float> attractors;
-  std::vector<float> repellers;
+  std::vector<std::pair<float,float>> attractors;
+  std::vector<std::pair<float,float>> repellers;
 
   std::vector<uint64_t> cells;
   std::vector<uint64_t> list;

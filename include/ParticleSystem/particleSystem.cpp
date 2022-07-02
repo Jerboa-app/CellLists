@@ -78,20 +78,18 @@ void ParticleSystem::cellCollisions(
 }
 
 void ParticleSystem::addRepeller(float x, float y){
-  repellers.push_back(x);
-  repellers.push_back(y);
+  repellers.push_back(std::pair<float,float>(x,y));
 }
 
 void ParticleSystem::addAttractor(float x, float y){
-  attractors.push_back(x);
-  attractors.push_back(y);
+  attractors.push_back(std::pair<float,float>(x,y));
 }
 
 bool ParticleSystem::deleteAttratorRepellor(float x, float y){
   float dist = 0.1*radius*5.0;
   for (int i = 0; i < attractors.size(); i++){
-    float rx = x-attractors[i*2];
-    float ry = y-attractors[i*2+1];
+    float rx = x-attractors[i].first;
+    float ry = y-attractors[i].second;
     if (rx*rx+ry*ry < dist){
       attractors.erase(attractors.begin()+i);
       return true;
@@ -99,8 +97,8 @@ bool ParticleSystem::deleteAttratorRepellor(float x, float y){
   }
 
   for (int i = 0; i < repellers.size(); i++){
-    float rx = x-repellers[i*2];
-    float ry = y-repellers[i*2+1];
+    float rx = x-repellers[i].first;
+    float ry = y-repellers[i].second;
     if (rx*rx+ry*ry < dist){
       repellers.erase(repellers.begin()+i);
       return true;
@@ -149,8 +147,8 @@ void ParticleSystem::step(){
   for (int i = 0; i < nParticles; i++){
 
     for (int j = 0; j < nAttractors(); j++){
-        float rx = attractors[j*2]-state[i*3];
-        float ry = attractors[j*2+1]-state[i*3+1];
+        float rx = attractors[j].first-state[i*3];
+        float ry = attractors[j].second-state[i*3+1];
 
         float d = sqrt(rx*rx+ry*ry);
 
@@ -167,8 +165,8 @@ void ParticleSystem::step(){
         }
       }
     for (int j = 0; j < nRepellers(); j++){
-        float rx = state[i*3]-repellers[j*2];
-        float ry = state[i*3+1]-repellers[j*2+1];
+        float rx = state[i*3]-repellers[j].first;
+        float ry = state[i*3+1]-repellers[j].second;
 
         float dd = rx*rx+ry*ry;
 
@@ -346,14 +344,14 @@ void ParticleSystem::initialiseGL(){
   glError("initialised toys");
 }
 
-glm::mat4 attractionRepulsionMatrix(std::vector<float> & data, int m){
+glm::mat4 attractionRepulsionMatrix(std::vector<std::pair<float,float>> & data, int m){
   glm::mat4 ar(0.0f);
   for (int i = 0; i < m; i++){
-    if (i < floor(data.size()/2.0)){
+    if (i < data.size()){
       int col = floor(i)/2.0;
       int o = int(2.0*fmod(float(i),2.0));
-      ar[col][o] = data[i*2];
-      ar[col][o+1] = data[i*2+1];
+      ar[col][o] = data[i].first;
+      ar[col][o+1] = data[i].second;
     }
   }
   return ar;
@@ -374,7 +372,7 @@ void ParticleSystem::draw(
 
   glUniform1f(
     glGetUniformLocation(particleShader,"scale"),
-    resX*radius
+    resX*radius*2.0
   );
 
   glBindBuffer(GL_ARRAY_BUFFER,offsetVBO);
@@ -398,7 +396,7 @@ void ParticleSystem::draw(
 
   glUniform1f(
     glGetUniformLocation(arShader,"scale"),
-    radius*8.0*resX
+    radius*8.0*resX*2.0
   );
 
   glUniform1f(
@@ -408,12 +406,12 @@ void ParticleSystem::draw(
 
   glUniform1i(
     glGetUniformLocation(arShader,"na"),
-    nAttractors()
+    attractors.size()
   );
 
   glUniform1i(
     glGetUniformLocation(arShader,"nr"),
-    nRepellers()
+    repellers.size()
   );
 
   glm::mat4 A = attractionRepulsionMatrix(attractors,8);
