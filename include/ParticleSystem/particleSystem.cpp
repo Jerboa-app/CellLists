@@ -119,14 +119,17 @@ void ParticleSystem::step(){
   tic = clock();
   for (int a = 0; a < Nc; a++){
     for (int b = 0; b < Nc; b++){
+      // draw it out, we can get away without
+      //  checking some cells! Left commented here for
+      //  understanding
       cellCollisions(a,b,a,b);
-      cellCollisions(a,b,a-1,b-1);
-      cellCollisions(a,b,a-1,b+1);
+      //cellCollisions(a,b,a-1,b-1);
+      //cellCollisions(a,b,a-1,b+1);
       cellCollisions(a,b,a+1,b+1);
       cellCollisions(a,b,a+1,b-1);
-      cellCollisions(a,b,a-1,b);
+      //cellCollisions(a,b,a-1,b);
       cellCollisions(a,b,a+1,b);
-      cellCollisions(a,b,a,b-1);
+      //cellCollisions(a,b,a,b-1);
       cellCollisions(a,b,a,b+1);
     }
   }
