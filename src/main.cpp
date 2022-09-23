@@ -264,10 +264,7 @@ int main(){
         "\n" <<
         "Mouse (" << fixedLengthNumber(mouse.x,4) << "," << fixedLengthNumber(mouse.y,4) << ")" <<
         "\n" <<
-        "Camera [world] (" << fixedLengthNumber(cameraX,4) << ", " << fixedLengthNumber(cameraY,4) << ")" <<
-        "\n" <<
-        "Collision/Frame: " << fixedLengthNumber(avgCollisionsPerFrame,6) <<
-        "\n";
+        "Camera [world] (" << fixedLengthNumber(cameraX,4) << ", " << fixedLengthNumber(cameraY,4) << ")" << "\n";
 
       textRenderer.renderText(
         OD,
